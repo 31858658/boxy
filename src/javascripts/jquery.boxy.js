@@ -67,7 +67,7 @@ function Boxy(element, options) {
     this.options = jQuery.extend({}, Boxy.DEFAULTS, options || {});
     
     if (this.options.modal) {
-        this.options = jQuery.extend(this.options, {center: true, draggable: false});
+        this.options = jQuery.extend(this.options, {center: true, draggable: this.options.draggable});
     }
     
     // options.actuator == DOM element that opened this boxy
@@ -77,6 +77,9 @@ function Boxy(element, options) {
     }
     
     this.setContent(element || "<div></div>");
+    
+    this._setupDraggable(this.boxy);
+    
     this._setupTitleBar();
     
     this.boxy.css('display', 'none').appendTo(document.body);
@@ -584,6 +587,28 @@ Boxy.prototype = {
                 Math.max(p[1] - delta[1] / 2, 0), width, height];
     },
     
+    _setupDraggable: function() {
+    	var self = this;
+        if (this.options.draggable) {
+            tb[0].onselectstart = function() { return false; }
+            tb[0].unselectable = 'on';
+            tb[0].style.MozUserSelect = 'none';
+            if (!Boxy.dragConfigured) {
+                jQuery(document).mousemove(Boxy._handleDrag);
+                Boxy.dragConfigured = true;
+            }
+            tb.mousedown(function(evt) {
+                self.toTop();
+                Boxy.dragging = [self, evt.pageX - self.boxy[0].offsetLeft, evt.pageY - self.boxy[0].offsetTop];
+                jQuery(this).addClass('dragging');
+            }).mouseup(function() {
+                jQuery(this).removeClass('dragging');
+                Boxy.dragging = null;
+                self._fire('afterDrop');
+            });
+        }
+    },
+    
     _setupTitleBar: function() {
         if (this.options.title) {
             var self = this;
@@ -591,24 +616,9 @@ Boxy.prototype = {
             if (this.options.closeable) {
                 tb.append(jQuery("<a href='#' class='close'></a>").html(this.options.closeText));
             }
-            if (this.options.draggable) {
-                tb[0].onselectstart = function() { return false; };
-                tb[0].unselectable = 'on';
-                tb[0].style.MozUserSelect = 'none';
-                if (!Boxy.dragConfigured) {
-                    jQuery(document).mousemove(Boxy._handleDrag);
-                    Boxy.dragConfigured = true;
-                }
-                tb.mousedown(function(evt) {
-                    self.toTop();
-                    Boxy.dragging = [self, evt.pageX - self.boxy[0].offsetLeft, evt.pageY - self.boxy[0].offsetTop];
-                    jQuery(this).addClass('dragging');
-                }).mouseup(function() {
-                    jQuery(this).removeClass('dragging');
-                    Boxy.dragging = null;
-                    self._fire('afterDrop');
-                });
-            }
+
+	    this._setupDraggable(tb);
+	    
             this.getInner().prepend(tb);
             this._setupDefaultBehaviours(tb);
         }
